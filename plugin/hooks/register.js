@@ -66,7 +66,7 @@ function fmtAge(ms) {
   return h + 'h' + String(m % 60).padStart(2, '0')
 }
 
-// Branch names run long (task_ux_feedbacks_batch3_AP-45272); the ticket id is
+// Branch names run long (feature_checkout_redesign_PROJ-1234); the ticket id is
 // what tells two tabs apart.
 function shortBranch(branch) {
   if (!branch) return ''
@@ -167,7 +167,7 @@ async function findTty($) {
 }
 
 // A few words on what the session is doing, for the menu bar app, where every
-// card would otherwise read "groups · AP-…". Your recent requests go in rather
+// card would otherwise read "myapp · PROJ-…". Your recent requests go in rather
 // than just the last, since "done" or "yes" says nothing about the topic.
 const recentAsks = []
 let titleSeq = 0

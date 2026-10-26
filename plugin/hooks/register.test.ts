@@ -15,14 +15,14 @@ function arrange(on: any, store: Record<string, unknown> = {}, terminals: string
   const engine = on as unknown as (event: string, hook: (...a: any[]) => unknown) => void
   engine('session.start', () => ({ cwd: '/tmp' }))
   engine('session.id', () => ({ value: 'abc123' }))
-  engine('session.cwd', () => ({ value: '/tmp/groups' }))
+  engine('session.cwd', () => ({ value: '/tmp/myapp' }))
   engine('env.get', () => ({ value: '/Users/tester' }))
   runs.length = 0
   engine('process.run', ($: unknown, e: { argv?: string[] }) => {
     runs.push(e.argv ?? [])
     if (e.argv?.[0] === 'pgrep') return { value: { exitCode: terminals.includes(e.argv[2] ?? '') ? 0 : 1, stdout: '', stderr: '' } }
     const argv = String(e.argv ?? '')
-    const stdout = argv.startsWith('osascript,') ? 'true\n' : argv.startsWith('sh,') ? '/dev/ttys004\n' : argv.includes('branch') ? 'task_AP-45272_x' : '/tmp/groups'
+    const stdout = argv.startsWith('osascript,') ? 'true\n' : argv.startsWith('sh,') ? '/dev/ttys004\n' : argv.includes('branch') ? 'feature_PROJ-1234_x' : '/tmp/myapp'
     return { value: { exitCode: 0, stdout, stderr: '' } }
   })
   mock.store(on, store)
@@ -115,7 +115,7 @@ test('an ask that never raises a dialog never shows Needs approval, however long
     return { result: 'ok' }
   }) as never)
   await $.session.start({ cwd: '/tmp' } as never)
-  await $.turn.start({ text: 'Review PR 11042', turnId: 't1' })
+  await $.turn.start({ text: 'Review PR 42', turnId: 't1' })
   const pending = $.tool.call({ tool: 'Bash', command: 'diff a b', description: 'Compare route trees', tool_use_id: 'u7', agentId: 'a1' } as never)
   await $.tool.check({ tool: 'Bash', input: {}, tool_use_id: 'u7' } as never)
   await clock.advance(60_000)
@@ -138,7 +138,7 @@ test('a subagent prompt after the main turn finished shows Needs approval, not D
   }) as never)
 
   await $.session.start({ cwd: '/tmp' } as never)
-  await $.turn.start({ text: 'Review PR 11042', turnId: 't1' })
+  await $.turn.start({ text: 'Review PR 42', turnId: 't1' })
   await clock.advance(1000)
   await $.turn.complete({ reason: 'answer', isAborted: false, turnId: 't1', answer: 'ok' } as never)
   await $.turn.start({ text: '<agent-message from="af117">[Subagent hand-back]</agent-message>', turnId: 't2' })
@@ -152,7 +152,7 @@ test('a subagent prompt after the main turn finished shows Needs approval, not D
   expect(await ui.find({ text: /Needs approval/ })).toBeDefined()
   expect(await ui.find({ text: /Done/ })).toBeUndefined()
   expect(await ui.find({ text: /Approve: running Run static scanner gates · from Find hook manifests/ })).toBeDefined()
-  expect(await ui.find({ text: /Review PR 11042/ })).toBeDefined()
+  expect(await ui.find({ text: /Review PR 42/ })).toBeDefined()
   expect(await ui.find({ text: /agent-message/ })).toBeUndefined()
   await ui.unmount()
 
@@ -174,7 +174,7 @@ test('Needs approval holds while the prompt is re-checked and other tools finish
   }) as never)
 
   await $.session.start({ cwd: '/tmp' } as never)
-  await $.turn.start({ text: 'Review PR 11042', turnId: 't1' })
+  await $.turn.start({ text: 'Review PR 42', turnId: 't1' })
   await $.turn.complete({ reason: 'answer', isAborted: false, turnId: 't1', answer: 'ok' } as never)
 
   const pending = $.tool.call({ tool: 'Bash', command: 'bash /tmp/x.sh', tool_use_id: 'u9', agentId: 'a1' } as never)
@@ -207,7 +207,7 @@ async function autoModeDialog($: any, on: any, verdict: { decision: 'ask'; rule?
     return { result: 'ok' }
   }) as never)
   await $.session.start({ cwd: '/tmp' } as never)
-  await $.turn.start({ text: 'Review PR 11042', turnId: 't1' })
+  await $.turn.start({ text: 'Review PR 42', turnId: 't1' })
   const pending = $.tool.call({ tool: 'Bash', command: 'git push', tool_use_id: 'u7', agentId: 'a1' } as never)
   await $.tool.check({ tool: 'Bash', input: {}, tool_use_id: 'u7' } as never)
   await $.classic.PermissionRequest(PROMPT('Bash', { agent_id: 'a1', permission_mode: 'auto' }))
@@ -253,7 +253,7 @@ test('every session is mirrored to ~/.claude/claude-tower-status.json for the me
   const snap = JSON.parse(last!.text)
   expect(snap.version).toBe(1)
   expect(snap.sessions).toHaveLength(1)
-  expect(snap.sessions[0]).toMatchObject({ project: 'groups', branch: 'task_AP-45272_x', state: 'waiting', task: 'Run the tests', tty: '/dev/ttys004', title: 'Run The Test Suite' })
+  expect(snap.sessions[0]).toMatchObject({ project: 'myapp', branch: 'feature_PROJ-1234_x', state: 'waiting', task: 'Run the tests', tty: '/dev/ttys004', title: 'Run The Test Suite' })
   expect(snap.sessions[0].waitingFor).toMatch(/Approve: running Run tests/)
   approve()
   await pending
@@ -282,7 +282,7 @@ test('with the deck off, the band draws nothing but the menu bar app still gets 
 const STOP = (tasks: Record<string, unknown>[]) =>
   ({ hook_event_name: 'Stop', session_id: 'abc123', transcript_path: '/t', cwd: '/tmp', stop_hook_active: false, background_tasks: tasks }) as never
 
-const SHELL = { id: 'b1', type: 'shell', status: 'running', description: 'Run the parallel suite', command: 'make server.test.parallel.all' }
+const SHELL = { id: 'b1', type: 'shell', status: 'running', description: 'Run the parallel suite', command: 'npm run test:all' }
 
 function arrangeStop(on: any) {
   const clock = arrange(on)
@@ -347,30 +347,30 @@ test('the status file carries the shells and the "shells" state for the menu bar
   await $.turn.complete({ reason: 'answer', isAborted: false, turnId: 't1', answer: 'ok' } as never)
   await clock.advance(4000)
   const snap = JSON.parse(writes.filter((w) => w.path.endsWith('/.claude/claude-tower-status.json')).at(-1)!.text)
-  expect(snap.sessions[0]).toMatchObject({ state: 'shells', shells: [{ description: 'Run the parallel suite', command: 'make server.test.parallel.all' }] })
+  expect(snap.sessions[0]).toMatchObject({ state: 'shells', shells: [{ description: 'Run the parallel suite', command: 'npm run test:all' }] })
 })
 
 test('/tab <ticket> jumps to the matching session when the band cannot be pressed', async ($, on) => {
   const clock = arrange(on, {
-    'session:peer1': { id: 'peer1', project: 'groups', branch: 'task_AP-1_y', tty: '/dev/ttys007', state: 'working', since: Date.now(), startedAt: Date.now() + 1, beat: Date.now() },
+    'session:peer1': { id: 'peer1', project: 'myapp', branch: 'feature_PROJ-1_y', tty: '/dev/ttys007', state: 'working', since: Date.now(), startedAt: Date.now() + 1, beat: Date.now() },
   })
   on('tool.call', () => ({ result: 'ok' }) as never)
   await $.session.start({ cwd: '/tmp' } as never)
   await clock.advance(1000)
-  const out = await $.command.run({ command: 'tab', args: 'ap-1' } as never)
-  expect(JSON.stringify(out)).toContain('Switched to groups · AP-1')
+  const out = await $.command.run({ command: 'tab', args: 'proj-1' } as never)
+  expect(JSON.stringify(out)).toContain('Switched to myapp · PROJ-1')
   expect(runs.find((argv) => argv[0] === 'osascript')!.join(' ')).toContain('"/dev/ttys007"')
 })
 
 test('/tab finds the session in iTerm2 when Terminal is not running', async ($, on) => {
   const clock = arrange(on, {
-    'session:peer1': { id: 'peer1', project: 'groups', branch: 'task_AP-1_y', tty: '/dev/ttys007', state: 'working', since: Date.now(), startedAt: Date.now() + 1, beat: Date.now() },
+    'session:peer1': { id: 'peer1', project: 'myapp', branch: 'feature_PROJ-1_y', tty: '/dev/ttys007', state: 'working', since: Date.now(), startedAt: Date.now() + 1, beat: Date.now() },
   }, ['iTerm2'])
   on('tool.call', () => ({ result: 'ok' }) as never)
   await $.session.start({ cwd: '/tmp' } as never)
   await clock.advance(1000)
-  const out = await $.command.run({ command: 'tab', args: 'ap-1' } as never)
-  expect(JSON.stringify(out)).toContain('Switched to groups · AP-1')
+  const out = await $.command.run({ command: 'tab', args: 'proj-1' } as never)
+  expect(JSON.stringify(out)).toContain('Switched to myapp · PROJ-1')
   const scripts = runs.filter((argv) => argv[0] === 'osascript').map((argv) => argv.join(' '))
   expect(scripts).toHaveLength(1)
   expect(scripts[0]).toContain('com.googlecode.iterm2')
@@ -378,7 +378,7 @@ test('/tab finds the session in iTerm2 when Terminal is not running', async ($, 
 
 test('a turn that answers while its subagent still runs reads Working, then Done once it finishes', async ($, on) => {
   const clock = arrangeStop(on)
-  agents = [{ id: 'a3', description: 'Address PR 11256 review', type: 'general-purpose', status: 'running' }]
+  agents = [{ id: 'a3', description: 'Address PR 42 review', type: 'general-purpose', status: 'running' }]
   const writes: { path: string; text: string }[] = []
   const engine = on as unknown as (event: string, hook: (...a: any[]) => unknown) => void
   engine('fs.write', (_$: unknown, e: { path: string; text: string }) => {
@@ -409,7 +409,7 @@ test('a turn that answers while its subagent still runs reads Working, then Done
 
 test('an aborted turn stays Stopped even with a subagent still running', async ($, on) => {
   const clock = arrangeStop(on)
-  agents = [{ id: 'a3', description: 'Address PR 11256 review', type: 'general-purpose', status: 'running' }]
+  agents = [{ id: 'a3', description: 'Address PR 42 review', type: 'general-purpose', status: 'running' }]
   await $.session.start({ cwd: '/tmp' } as never)
   await $.turn.start({ text: 'Rebase and resolve conflicts', turnId: 't1' })
   await $.turn.complete({ reason: 'aborted', isAborted: true, turnId: 't1', answer: '' } as never)
