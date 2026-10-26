@@ -368,7 +368,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             let agents = s.agents ?? []
             if !agents.isEmpty {
                 let done = agents.filter { $0.status == "completed" }.count
-                lines.append("Subagents: \(done)/\(agents.count) done")
+                let running = agents.filter { ["pending", "running", "waiting"].contains($0.status ?? "") }.count
+                lines.append("Subagents: \(done)/\(agents.count) done" + (running > 0 ? " · \(running) running" : ""))
             }
             row.subtitle = lines.joined(separator: "\n")
             menu.addItem(row)

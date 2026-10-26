@@ -7,6 +7,9 @@ const BAND = {
 } as const
 
 const runs: string[][] = []
+let agents: { id: string; description: string; type: string; status: string }[] = []
+// The subagent a turn delegated to finishes; a1 is the one that does the work.
+const finishAgents = () => (agents = agents.map((a) => ({ ...a, status: 'completed' })))
 
 function arrange(on: any, store: Record<string, unknown> = {}, terminals: string[] = ['Terminal']) {
   const engine = on as unknown as (event: string, hook: (...a: any[]) => unknown) => void
@@ -24,12 +27,11 @@ function arrange(on: any, store: Record<string, unknown> = {}, terminals: string
   })
   mock.store(on, store)
   const clock = mock.clock(on, { now: 1_000_000 })
-  engine('agent.list', () => ({
-    value: [
-      { id: 'a1', description: 'Find hook manifests', type: 'Explore', status: 'running' },
-      { id: 'a2', description: 'Review the diff', type: 'general-purpose', status: 'completed' },
-    ],
-  }))
+  agents = [
+    { id: 'a1', description: 'Find hook manifests', type: 'Explore', status: 'running' },
+    { id: 'a2', description: 'Review the diff', type: 'general-purpose', status: 'completed' },
+  ]
+  engine('agent.list', () => ({ value: agents }))
   engine('turn.start', ($: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
   engine('ui.invalidate', () => ({ value: undefined }))
   engine('command.register', () => ({ value: undefined }))
@@ -156,6 +158,7 @@ test('a subagent prompt after the main turn finished shows Needs approval, not D
 
   approve()
   await pending
+  finishAgents()
   await clock.advance(1000)
   ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
   expect(await ui.find({ text: /Needs approval/ })).toBeUndefined()
@@ -190,6 +193,7 @@ test('Needs approval holds while the prompt is re-checked and other tools finish
 
   approve()
   await pending
+  finishAgents()
   await clock.advance(1000)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
   expect(await ui.find({ text: /Done/ })).toBeDefined()
@@ -282,6 +286,7 @@ const SHELL = { id: 'b1', type: 'shell', status: 'running', description: 'Run th
 
 function arrangeStop(on: any) {
   const clock = arrange(on)
+  finishAgents()
   const engine = on as unknown as (event: string, hook: (...a: any[]) => unknown) => void
   engine('turn.complete', () => ({ text: '' }))
   engine('classic.Stop', () => ({}))
@@ -369,4 +374,46 @@ test('/tab finds the session in iTerm2 when Terminal is not running', async ($, 
   const scripts = runs.filter((argv) => argv[0] === 'osascript').map((argv) => argv.join(' '))
   expect(scripts).toHaveLength(1)
   expect(scripts[0]).toContain('com.googlecode.iterm2')
+})
+
+test('a turn that answers while its subagent still runs reads Working, then Done once it finishes', async ($, on) => {
+  const clock = arrangeStop(on)
+  agents = [{ id: 'a3', description: 'Address PR 11256 review', type: 'general-purpose', status: 'running' }]
+  const writes: { path: string; text: string }[] = []
+  const engine = on as unknown as (event: string, hook: (...a: any[]) => unknown) => void
+  engine('fs.write', (_$: unknown, e: { path: string; text: string }) => {
+    writes.push(e)
+    return { value: undefined }
+  })
+  await $.session.start({ cwd: '/tmp' } as never)
+  await $.turn.start({ text: 'Rebase and resolve conflicts', turnId: 't1' })
+  await $.turn.complete({ reason: 'answer', isAborted: false, turnId: 't1', answer: 'ok' } as never)
+  await clock.advance(1000)
+
+  let ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  expect(await ui.find({ text: /Working/ })).toBeDefined()
+  expect(await ui.find({ text: /Done/ })).toBeUndefined()
+  expect(await ui.find({ text: /Waiting on 1 subagent$/ })).toBeDefined()
+  expect(await ui.find({ text: /0\/1 done/ })).toBeDefined()
+  const working = JSON.parse(writes.at(-1)!.text).sessions[0]
+  expect(working).toMatchObject({ state: 'working', activity: 'Waiting on 1 subagent' })
+  await ui.unmount()
+
+  finishAgents()
+  await clock.advance(1000)
+  ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  expect(await ui.find({ text: /✓ Done/ })).toBeDefined()
+  expect(await ui.find({ text: /1\/1 done/ })).toBeDefined()
+  expect(await ui.find({ text: /Waiting on/ })).toBeUndefined()
+})
+
+test('an aborted turn stays Stopped even with a subagent still running', async ($, on) => {
+  const clock = arrangeStop(on)
+  agents = [{ id: 'a3', description: 'Address PR 11256 review', type: 'general-purpose', status: 'running' }]
+  await $.session.start({ cwd: '/tmp' } as never)
+  await $.turn.start({ text: 'Rebase and resolve conflicts', turnId: 't1' })
+  await $.turn.complete({ reason: 'aborted', isAborted: true, turnId: 't1', answer: '' } as never)
+  await clock.advance(1000)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' } as never)
+  expect(await ui.find({ text: /Stopped/ })).toBeDefined()
 })

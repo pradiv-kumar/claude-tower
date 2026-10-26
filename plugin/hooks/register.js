@@ -107,10 +107,25 @@ function describeTool(e) {
 
 const blocked = () => [...asks.values()].some((a) => a.promoted)
 
-// The turn answered but background shells still run: the session will wake
-// again when they end, so it isn't really "done" yet.
+const liveAgents = () => (me?.agents || []).filter((a) => AGENT_LIVE.has(a.status))
+
+// The turn answered but work it started goes on. Subagents will hand results
+// back and the session carries on with them, so it's still working; background
+// shells only wake it to report, so it reads as done with shells running.
 function settledState() {
-  return endState === 'done' && me?.shells?.length ? 'shells' : endState
+  if (endState !== 'done') return endState
+  if (liveAgents().length) return 'working'
+  return me?.shells?.length ? 'shells' : 'done'
+}
+
+// Re-reads the settled state once the main loop is idle: subagents finish on
+// their own clock, long after the turn that started them.
+function settle($) {
+  if (!me || mainActive || blocked() || me.state === 'waiting' || me.state === 'asking') return
+  const state = settledState()
+  const n = liveAgents().length
+  setActivity($, state === 'working' ? `Waiting on ${n} subagent${n === 1 ? '' : 's'}` : '')
+  setState($, state)
 }
 
 function shellText(sh) {
@@ -304,6 +319,7 @@ async function tick($) {
   frame += 1
   try {
     await refreshAgents($)
+    settle($)
     await refreshPeers($)
   } catch {}
   $.ui.invalidate('ui.render')
@@ -501,7 +517,7 @@ async function trackShells($, e, next) {
     me.shells = e.background_tasks
       .filter((t) => t.type === 'shell')
       .map((t) => ({ description: oneLine(t.description, 80), command: oneLine(t.command, 120) }))
-    if (!mainActive && !blocked() && (me.state === 'done' || me.state === 'shells')) setState($, settledState())
+    settle($)
     publish($).catch(() => {})
     $.ui.invalidate('ui.render')
   }
@@ -591,7 +607,7 @@ export function register(on, options = {}) {
       setActivity($, '')
       // A background subagent can still be holding a prompt open after the main
       // loop has answered; that prompt outranks "done".
-      if (!blocked()) setState($, settledState())
+      settle($)
     }
     return next(e)
   })
