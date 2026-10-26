@@ -88,3 +88,7 @@ Each session heartbeats every 3 s; one that stops for 15 s (crash, closed tab) d
 claude plugin validate plugin
 claude plugin test plugin
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
