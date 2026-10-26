@@ -1,0 +1,14 @@
+{
+  "name": "session-tower",
+  "version": "0.1.0",
+  "description": "Live status of every Claude Code session on this Mac: a card deck above the prompt and a feed for the Claude Tower menu bar app",
+  "author": { "name": "Pradiv Kumar" },
+  "userConfig": {
+    "deck": {
+      "type": "boolean",
+      "title": "Show the session deck above the prompt",
+      "description": "Off keeps the terminal clean and leaves status to the menu bar app; sessions still report to it either way.",
+      "default": true
+    }
+  }
+}

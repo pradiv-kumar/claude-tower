@@ -1,0 +1,16 @@
+{
+  "name": "session-tower",
+  "owner": {
+    "name": "Pradiv Kumar"
+  },
+  "metadata": {
+    "description": "Claude Tower: see every Claude Code session on this Mac from the menu bar and above the prompt"
+  },
+  "plugins": [
+    {
+      "name": "session-tower",
+      "source": "./plugin",
+      "description": "Live status of every Claude Code session on this Mac, above the prompt and in the menu bar"
+    }
+  ]
+}

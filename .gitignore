@@ -1,0 +1,4 @@
+.DS_Store
+menubar/.build/
+# Written by Claude Code when it loads the plugin.
+plugin/.claude-plugin/types/
